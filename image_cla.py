@@ -95,13 +95,14 @@ class Net(nn.Module):
         self.maxpool3=nn.MaxPool2d(kernel_size=5)
         # l10
         self.flat1=nn.Flatten()
+
         # l11
-        self.fc1=nn.Linear(in_features=,out_features=100)
+        self.fc1=nn.LazyLinear(out_features=100)
         self.a7=torch.nn.ReLU()
         # l12
         self.drop=nn.Dropout(p=0.5)
         # l13
-        self.fc2=nn.Linear(out_features=6)
+        self.fc2=nn.LazyLinear(out_features=6)
         self.sm=nn.Softmax()
 
     def forward(self,x):
