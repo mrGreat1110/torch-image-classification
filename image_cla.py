@@ -1,3 +1,4 @@
+from pickletools import optimize
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -9,6 +10,9 @@ import glob
 import pandas as pd
 import cv2
 import torch.nn as nn
+import numpy as np
+import torchvision.transforms as T
+from PIL import Image
 torch.manual_seed(6)
 
 class_names_label = {'buildings': 0,
@@ -39,6 +43,21 @@ df=pd.DataFrame({'image':id_image, 'class':clas, 'location':location})
 df['class']=df['class'].replace(class_names_label)
 df.to_csv('data_train.csv')
 
+
+id_image=[]
+clas=[]
+location=[]
+for sub in list_sub:
+    list_ima_class=os.listdir(path_test+'/'+sub)
+    for ima in list_ima_class:
+        id_image.append(ima)
+        clas.append(sub)
+        location.append(path_test+'/'+sub+'/'+ima)
+df2=pd.DataFrame({'image':id_image, 'class':clas, 'location':location})
+df2['class']=df2['class'].replace(class_names_label)
+df2.to_csv('data_test.csv')
+
+
 class Dataset(Dataset):
     def __init__(self, file_csv):
         super(Dataset, self).__init__()
@@ -52,16 +71,18 @@ class Dataset(Dataset):
     
     def __getitem__(self, index):
         image=cv2.imread(self.location[index])
+        image=cv2.resize(image,(150,150))
+        image = np.moveaxis(image, -1, 0)
         y=self.clas[index]
         return image, y
 
 
 dataset=Dataset('data_train.csv')
-# print(dataset[3])
+vali_dataset=Dataset('data_test.csv')
 # plt.imshow(dataset[3][0])
+# print(dataset[3][0].shape)
 # plt.show()
-# print(len(dataset))
-
+# print(dataset)
 
 # Tao model
 
@@ -124,7 +145,45 @@ class Net(nn.Module):
 model=Net()
 
 
+# compile model
+criterion = nn.CrossEntropyLoss()
+lr=0.0001
+optimizer=torch.optim.Adam(model.parameters(), lr=lr)
+train_loader=DataLoader(dataset=dataset, batch_size=100)
+validation_loader=DataLoader(dataset=vali_dataset, batch_size=100)
 
+
+n_epochs=5
+cost_list=[]
+accuracy_list=[]
+N_test=len(vali_dataset)
+COST=0
+import tqdm
+def train_model(n_epochs):
+    for epoch in tqdm.tqdm(range(n_epochs)):
+        COST=0
+        for x, y in tqdm.tqdm(train_loader):
+            optimizer.zero_grad()
+            z = model(x.float())
+            loss = criterion(z, y)
+            loss.backward()
+            optimizer.step()
+            COST+=loss.data
+        
+        cost_list.append(COST)
+        correct=0
+        #perform a prediction on the validation  data  
+        for x_test, y_test in validation_loader:
+            z = model(x_test.float())
+            _, yhat = torch.max(z.data, 1)
+            correct += (yhat == y_test).sum().item()
+        accuracy = correct / N_test
+        accuracy_list.append(accuracy)
+     
+train_model(n_epochs)
+
+
+print(accuracy_list)
 
 
 
